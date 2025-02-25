@@ -1,0 +1,1 @@
+g++ -O2 -std=c++11  .\laba1umf.cpp .\mkr.cpp .\slau.cpp

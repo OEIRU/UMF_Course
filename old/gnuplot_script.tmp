@@ -1,0 +1,8 @@
+
+        set pm3d map
+        set palette rgbformulae 33,13,10
+        set xrange [0:]
+        set yrange [0:]
+        set title 'Analytical Solution'
+        splot 'analytical_solution.txt' matrix with pm3d notitle
+    
