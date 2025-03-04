@@ -1,9 +1,8 @@
 #include <iostream>
-#include <fstream> 
 #include <vector>
 #include <cmath>
+#include <fstream>
 #include <iomanip>
-#include <cstdlib>
 
 using namespace std;
 
@@ -12,52 +11,52 @@ enum BoundaryType {
     ROBIN      // Условие третьего рода
 };
 
-// Базовый класс для решения СЛАУ методом блочной релаксации
 class SLAU {
-protected:
-    int N; // Размерность системы
-    int nx, ny; // Размеры сетки
-    vector<vector<double>> A; // Матрица коэффициентов (в диагональном формате)
-    vector<double> b; // Вектор правой части
-    vector<double> x; // Вектор неизвестных
-    int maxiter; // Максимальное число итераций
-    double tol; // Требуемая точность
-
-public:
-    SLAU(int N, int nx, int ny, int maxiter, double tol) 
-         : N(N), nx(nx), ny(ny), maxiter(maxiter), tol(tol), x(N, 0.0) {}
-
-    // Метод блочной релаксации для решения СЛАУ
-    void solve() {
-        for (int k = 0; k < maxiter; k++) {
-            double residual = 0.0;
-            for (int i = 0; i < N; i++) {
-                double S = A[i][2] * x[i];
-                if (i > 0) S += A[i][1] * x[i - 1]; // Левый сосед
-                if (i < N - 1) S += A[i][3] * x[i + 1]; // Правый сосед
-                if (i >= nx) S += A[i][0] * x[i - nx]; // Верхний сосед
-                if (i < N - nx) S += A[i][4] * x[i + nx]; // Нижний сосед
-
-                double new_x = x[i] + (b[i] - S) / A[i][2];
-                residual += abs(b[i] - S);
-                x[i] = new_x;
-            }
-            if (residual < tol) {
-                cout << "Converged in " << k << " iterations." << endl;
-                break;
+    protected:
+        int N; // Размерность системы
+        int nx, ny; // Размеры сетки
+        vector<vector<double>> A; // Матрица коэффициентов (в диагональном формате)
+        vector<double> b; // Вектор правой части
+        vector<double> x; // Вектор неизвестных
+        int maxiter; // Максимальное число итераций
+        double tol; // Требуемая точность
+    
+    public:
+        SLAU(int N, int nx, int ny, int maxiter, double tol) 
+             : N(N), nx(nx), ny(ny), maxiter(maxiter), tol(tol), x(N, 0.0) {}
+    
+        // Метод блочной релаксации для решения СЛАУ
+        void solve() {
+            for (int k = 0; k < maxiter; k++) {
+                double residual = 0.0;
+                for (int i = 0; i < N; i++) {
+                    double S = A[i][2] * x[i];
+                    if (i > 0) S += A[i][1] * x[i - 1]; // Левый сосед
+                    if (i < N - 1) S += A[i][3] * x[i + 1]; // Правый сосед
+                    if (i >= nx) S += A[i][0] * x[i - nx]; // Верхний сосед
+                    if (i < N - nx) S += A[i][4] * x[i + nx]; // Нижний сосед
+    
+                    double new_x = x[i] + (b[i] - S) / A[i][2];
+                    residual += abs(b[i] - S);
+                    x[i] = new_x;
+                }
+                if (residual < tol) {
+                    cout << "Converged in " << k << " iterations." << endl;
+                    break;
+                }
             }
         }
-    }
-
-    // Установка матрицы A и вектора b
-    void set_system(const vector<vector<double>> &A_, const vector<double> &b_) {
-        A = A_;
-        b = b_;
-    }
-
-    // Получение решения
-    const vector<double>& get_solution() const { return x; }
-};
+    
+        // Установка матрицы A и вектора b
+        void set_system(const vector<vector<double>> &A_, const vector<double> &b_) {
+            A = A_;
+            b = b_;
+        }
+    
+        // Получение решения
+        const vector<double>& get_solution() const { return x; }
+    };
+    
 
 // Класс для решения задачи теплопроводности методом конечных разностей
 class MKR {
@@ -69,10 +68,12 @@ private:
     double k, q; // Коэффициенты уравнения
     vector<double> u_exact; // Аналитическое решение
     vector<double> x; // Решение
-    BoundaryType boundary_type_left = DIRICHLET;    // Тип КУ на левой границе
-    BoundaryType boundary_type_right = DIRICHLET;  // Тип КУ на правой границе
-    BoundaryType boundary_type_bottom = DIRICHLET; // Тип КУ на нижней границе
-    BoundaryType boundary_type_top = DIRICHLET;    // Тип КУ на верхней границе
+    BoundaryType boundary_type_left, boundary_type_right, boundary_type_bottom, boundary_type_top;
+
+    // Параметры для граничных условий
+    vector<double> dirichlet_left, dirichlet_right, dirichlet_bottom, dirichlet_top;
+    double alpha_left, alpha_right, alpha_bottom, alpha_top;
+    vector<double> robin_g_left, robin_g_right, robin_g_bottom, robin_g_top;
 
 public:
     MKR(double x0, double y0, double x1, double y1, double xc1, double yc1, double xc2, double yc2,
@@ -81,9 +82,40 @@ public:
           nx(nx), ny(ny), k(k), q(q) {
         hx = (x1 - x0) / nx;
         hy = (y1 - y0) / ny;
+        boundary_type_left = boundary_type_right = boundary_type_bottom = boundary_type_top = DIRICHLET;
     }
 
-    // Создание сетки
+    // Установка типов граничных условий
+    void set_boundary_conditions(BoundaryType left, BoundaryType right, BoundaryType bottom, BoundaryType top) {
+        boundary_type_left = left;
+        boundary_type_right = right;
+        boundary_type_bottom = bottom;
+        boundary_type_top = top;
+    }
+
+    // Установка значений для условий Дирихле
+    void set_dirichlet_values(const vector<double> &left, const vector<double> &right,
+                              const vector<double> &bottom, const vector<double> &top) {
+        dirichlet_left = left;
+        dirichlet_right = right;
+        dirichlet_bottom = bottom;
+        dirichlet_top = top;
+    }
+
+    // Установка значений для условий Робена
+    void set_robin_values(double alpha_left, double alpha_right, double alpha_bottom, double alpha_top,
+                          const vector<double> &g_left, const vector<double> &g_right,
+                          const vector<double> &g_bottom, const vector<double> &g_top) {
+        this->alpha_left = alpha_left;
+        this->alpha_right = alpha_right;
+        this->alpha_bottom = alpha_bottom;
+        this->alpha_top = alpha_top;
+        robin_g_left = g_left;
+        robin_g_right = g_right;
+        robin_g_bottom = g_bottom;
+        robin_g_top = g_top;
+    }
+
     void create_grid() {
         vector<double> X(nx + 2), Y(ny + 2); // +2 для включения границ
         for (int i = 0; i <= nx; i++) {
@@ -167,98 +199,99 @@ public:
         x = slau.get_solution();
     }
 
-    void apply_boundary_conditions(vector<vector<double>> &A, vector<double> &b) {
-        double alpha = 1.0; // Коэффициент в условии Робена
-    
-        // Левая граница (x = x0)
-        for (int j = 0; j < ny; j++) {
-            int idx = j * nx;
-            if (boundary_type_left == DIRICHLET) {
-                // Условия первого рода (Dirichlet)
-                A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
-                A[idx][2] = 1.0;
-                b[idx] = boundary_condition(x0, y0 + j * hy);
-            } else if (boundary_type_left == ROBIN) {
-                // Условия третьего рода (Robin)
-                double x_coord = x0;
-                double y_coord = y0 + j * hy;
-                double g_value = k * 2 * x_coord + alpha * (x_coord * x_coord + y_coord * y_coord);
-                A[idx][0] = 0.0; // Верхний сосед
-                A[idx][1] = -k / (2 * hx); // Левый сосед (центральная разность)
-                A[idx][2] = k / (2 * hx) + alpha; // Центральный элемент
-                A[idx][3] = 0.0; // Правый сосед
-                A[idx][4] = 0.0; // Нижний сосед
-                b[idx] = g_value;
-            }
-        }
-    
-        // Правая граница (x = x1)
-        for (int j = 0; j < ny; j++) {
-            int idx = j * nx + (nx - 1);
-            if (boundary_type_right == DIRICHLET) {
-                // Условия первого рода (Dirichlet)
-                A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
-                A[idx][2] = 1.0;
-                b[idx] = boundary_condition(x1, y0 + j * hy);
-            } else if (boundary_type_right == ROBIN) {
-                // Условия третьего рода (Robin)
-                double x_coord = x1;
-                double y_coord = y0 + j * hy;
-                double g_value = k * 2 * x_coord + alpha * (x_coord * x_coord + y_coord * y_coord);
-                A[idx][0] = 0.0; // Верхний сосед
-                A[idx][1] = 0.0; // Левый сосед
-                A[idx][2] = k / (2 * hx) + alpha; // Центральный элемент
-                A[idx][3] = -k / (2 * hx); // Правый сосед (центральная разность)
-                A[idx][4] = 0.0; // Нижний сосед
-                b[idx] = g_value;
-            }
-        }
-    
-        // Нижняя граница (y = y0)
-        for (int i = 0; i < nx; i++) {
-            int idx = i;
-            if (boundary_type_bottom == DIRICHLET) {
-                // Условия первого рода (Dirichlet)
-                A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
-                A[idx][2] = 1.0;
-                b[idx] = boundary_condition(x0 + i * hx, y0);
-            } else if (boundary_type_bottom == ROBIN) {
-                // Условия третьего рода (Robin)
-                double x_coord = x0 + i * hx;
-                double y_coord = y0;
-                double g_value = k * 2 * y_coord + alpha * (x_coord * x_coord + y_coord * y_coord);
-                A[idx][0] = -k / (2 * hy); // Верхний сосед (центральная разность)
-                A[idx][1] = 0.0; // Левый сосед
-                A[idx][2] = k / (2 * hy) + alpha; // Центральный элемент
-                A[idx][3] = 0.0; // Правый сосед
-                A[idx][4] = 0.0; // Нижний сосед
-                b[idx] = g_value;
-            }
-        }
-    
-        // Верхняя граница (y = y1)
-        for (int i = 0; i < nx; i++) {
-            int idx = (ny - 1) * nx + i;
-            if (boundary_type_top == DIRICHLET) {
-                // Условия первого рода (Dirichlet)
-                A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
-                A[idx][2] = 1.0;
-                b[idx] = boundary_condition(x0 + i * hx, y1);
-            } else if (boundary_type_top == ROBIN) {
-                // Условия третьего рода (Robin)
-                double x_coord = x0 + i * hx;
-                double y_coord = y1;
-                double g_value = k * 2 * y_coord + alpha * (x_coord * x_coord + y_coord * y_coord);
-                A[idx][0] = 0.0; // Верхний сосед
-                A[idx][1] = 0.0; // Левый сосед
-                A[idx][2] = k / (2 * hy) + alpha; // Центральный элемент
-                A[idx][3] = 0.0; // Правый сосед
-                A[idx][4] = -k / (2 * hy); // Нижний сосед (центральная разность)
-                b[idx] = g_value;
-            }
+    // Применение граничных условий
+// Применение граничных условий
+void apply_boundary_conditions(vector<vector<double>> &A, vector<double> &b) {
+    double alpha = 1.0; // Коэффициент в условии Робена
+
+    // Левая граница (x = x0)
+    for (int j = 0; j < ny; j++) {
+        int idx = j * nx; // Индекс узла на левой границе
+        if (boundary_type_left == DIRICHLET) {
+            // Условия первого рода (Dirichlet)
+            A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
+            A[idx][2] = 1.0; // Центральный элемент
+            b[idx] = dirichlet_left[j]; // Значение на границе
+        } else if (boundary_type_left == ROBIN) {
+            // Условия третьего рода (Robin)
+            double x_coord = x0;
+            double y_coord = y0 + j * hy;
+            double g_value = robin_g_left[j];
+            A[idx][0] = 0.0; // Верхний сосед
+            A[idx][1] = -k / (2 * hx); // Левый сосед (центральная разность)
+            A[idx][2] = k / (2 * hx) + alpha_left; // Центральный элемент
+            A[idx][3] = 0.0; // Правый сосед
+            A[idx][4] = 0.0; // Нижний сосед
+            b[idx] = g_value;
         }
     }
 
+    // Правая граница (x = x1)
+    for (int j = 0; j < ny; j++) {
+        int idx = j * nx + (nx - 1); // Индекс узла на правой границе
+        if (boundary_type_right == DIRICHLET) {
+            // Условия первого рода (Dirichlet)
+            A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
+            A[idx][2] = 1.0; // Центральный элемент
+            b[idx] = dirichlet_right[j]; // Значение на границе
+        } else if (boundary_type_right == ROBIN) {
+            // Условия третьего рода (Robin)
+            double x_coord = x1;
+            double y_coord = y0 + j * hy;
+            double g_value = robin_g_right[j];
+            A[idx][0] = 0.0; // Верхний сосед
+            A[idx][1] = 0.0; // Левый сосед
+            A[idx][2] = k / (2 * hx) + alpha_right; // Центральный элемент
+            A[idx][3] = -k / (2 * hx); // Правый сосед (центральная разность)
+            A[idx][4] = 0.0; // Нижний сосед
+            b[idx] = g_value;
+        }
+    }
+
+    // Нижняя граница (y = y0)
+    for (int i = 0; i < nx; i++) {
+        int idx = i; // Индекс узла на нижней границе
+        if (boundary_type_bottom == DIRICHLET) {
+            // Условия первого рода (Dirichlet)
+            A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
+            A[idx][2] = 1.0; // Центральный элемент
+            b[idx] = dirichlet_bottom[i]; // Значение на границе
+        } else if (boundary_type_bottom == ROBIN) {
+            // Условия третьего рода (Robin)
+            double x_coord = x0 + i * hx;
+            double y_coord = y0;
+            double g_value = robin_g_bottom[i];
+            A[idx][0] = -k / (2 * hy); // Верхний сосед (центральная разность)
+            A[idx][1] = 0.0; // Левый сосед
+            A[idx][2] = k / (2 * hy) + alpha_bottom; // Центральный элемент
+            A[idx][3] = 0.0; // Правый сосед
+            A[idx][4] = 0.0; // Нижний сосед
+            b[idx] = g_value;
+        }
+    }
+
+    // Верхняя граница (y = y1)
+    for (int i = 0; i < nx; i++) {
+        int idx = (ny - 1) * nx + i; // Индекс узла на верхней границе
+        if (boundary_type_top == DIRICHLET) {
+            // Условия первого рода (Dirichlet)
+            A[idx][0] = A[idx][1] = A[idx][3] = A[idx][4] = 0.0;
+            A[idx][2] = 1.0; // Центральный элемент
+            b[idx] = dirichlet_top[i]; // Значение на границе
+        } else if (boundary_type_top == ROBIN) {
+            // Условия третьего рода (Robin)
+            double x_coord = x0 + i * hx;
+            double y_coord = y1;
+            double g_value = robin_g_top[i];
+            A[idx][0] = 0.0; // Верхний сосед
+            A[idx][1] = 0.0; // Левый сосед
+            A[idx][2] = k / (2 * hy) + alpha_top; // Центральный элемент
+            A[idx][3] = 0.0; // Правый сосед
+            A[idx][4] = -k / (2 * hy); // Нижний сосед (центральная разность)
+            b[idx] = g_value;
+        }
+    }
+}
     // Функция для правой части уравнения
     double f_function(double x, double y) {
         return -4.0 * k + q * (x * x + y * y); // Для u(x, y) = x^2 + y^2
@@ -356,6 +389,8 @@ public:
         return sqrt(error / x.size());
     }
 };
+    // Остальные методы (create_grid, create_SLAE, test_polynomial, etc.) остаются без изменений
+
 
 int plot_output() {
     ofstream script("plot_script.gp");
@@ -373,16 +408,45 @@ int plot_output() {
     return 0;
 
 }
+
 // Главная функция
 int main() {
     // Параметры задачи
     double x0 = 0.0, y0 = 0.0, x1 = 1.0, y1 = 1.0;
     double xc1 = 0.25, yc1 = 0.0, xc2 = 0.75, yc2 = 0.75; // Границы выреза
-    int nx = 100, ny = 100;
+    int nx = 20, ny = 20;
     double k = 1.0, q = 0.0;
 
     // Создание объекта MKR
     MKR mkr(x0, y0, x1, y1, xc1, yc1, xc2, yc2, nx, ny, k, q);
+
+    // Задание типов граничных условий
+    mkr.set_boundary_conditions(ROBIN, DIRICHLET, ROBIN, DIRICHLET);
+
+    // Задание значений для условий Дирихле
+    vector<double> dirichlet_right(nx), dirichlet_top(ny);
+    for (int i = 0; i < nx; i++) {
+        dirichlet_right[i] = 1.0; // Пример значения на правой границе
+    }
+    for (int j = 0; j < ny; j++) {
+        dirichlet_top[j] = 1.0; // Пример значения на верхней границе
+    }
+    mkr.set_dirichlet_values({}, dirichlet_right, {}, dirichlet_top);
+
+    // Задание значений для условий Робена
+    double alpha_left = 1.0, alpha_bottom = 1.0;
+    vector<double> robin_g_left(ny), robin_g_bottom(nx);
+    for (int j = 0; j < ny; j++) {
+        double x_coord = x0;
+        double y_coord = y0 + j * (y1 - y0) / ny;
+        robin_g_left[j] = k * 2 * x_coord + alpha_left * (x_coord * x_coord + y_coord * y_coord);
+    }
+    for (int i = 0; i < nx; i++) {
+        double x_coord = x0 + i * (x1 - x0) / nx;
+        double y_coord = y0;
+        robin_g_bottom[i] = k * 2 * y_coord + alpha_bottom * (x_coord * x_coord + y_coord * y_coord);
+    }
+    mkr.set_robin_values(alpha_left, 0.0, alpha_bottom, 0.0, robin_g_left, {}, robin_g_bottom, {});
 
     // Создание сетки
     mkr.create_grid();
@@ -398,6 +462,7 @@ int main() {
 
     // Сохранение данных для gnuplot
     mkr.save_to_file("solution_data.txt");
+
 
     plot_output();
 
