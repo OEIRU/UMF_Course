@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-<<<<<<< HEAD
 #include <cmath>
 #include <iomanip>
 #include <functional>
@@ -331,7 +330,7 @@ public:
                      << setw(20) << scientific << setprecision(2) << err << " " << endl;
                 
                 // Запись в файлы
-                sdf << xv << " " << yv << " " << sol[idx] << " ";
+                sdf << xv << " " << yv << " " << sol[idx] << "\n";
                 csv << xv << "," << yv << "," << ev << "," << sol[idx] << "," << err << endl;
             }
         }
@@ -363,20 +362,31 @@ public:
            << "set xlabel 'Column'\n"
            << "set ylabel 'Row'\n";
         sf << "plot '" << dataFile << "' using 2:1 with points pt 7 ps 0.5 title ''\n";
-        
+        sf << "pause -1\n";
+
         sf.close();
-        system(("/usr/bin/gnuplot -persist " + script).c_str());
+        system(("gnuplot " + script).c_str());
     }
 };
 
 // Метод визуализации решения
 int plot_output() {
+    // Проверяем существование файла
+    ifstream f("solution_data.txt");
+    if (!f.good()) {
+        cerr << "Ошибка: Файл solution_data.txt не найден. Сначала выполните расчет (пункт 5)." << endl;
+        return 1;
+    }
+
     ofstream script("plot_script.gp");
-    script << "set pm3d map\n";
-    script << "splot 'solution_data.txt' with points pt 7 ps 0.5\n";
-    script << "pause -1\n";
+    script << "set pm3d map\n"
+           << "splot 'solution_data.txt' using 1:2:3 with points pt 7 ps 0.5\n"
+           << "pause -1\n";
     script.close();
-    system("/usr/bin/gnuplot plot_script.gp");
+
+    // Универсальный вызов gnuplot (работает и на Windows, и на Linux)
+    system("gnuplot plot_script.gp");
+
     remove("plot_script.gp");
     return 0;
 }
@@ -404,7 +414,8 @@ int plot_domain(PiShapedFigure& fig, int nx, int ny) {
     sf << "pause -1\n";
     sf.close();
     
-    system("/usr/bin/gnuplot plot_domain.gp");
+    system("gnuplot plot_domain.gp");
+    //system("/usr/bin/gnuplot plot_domain.gp");
     remove("plot_domain.gp");
     remove("domain_data.txt");
     return 0;
@@ -512,38 +523,3 @@ int main() {
     
     return 0;
 }
-=======
-#include <fstream>
-#include <cmath>
-#include <functional>
-#include "function.h"
-
-int main()
-{
-    const double eps = 1e-15, w = 1.2;
-    const int maxIter = 1000;
-
-    area_t area;
-    parameters_t params;
-    std::vector<std::vector<int>> boundary_conds;
-    grid_t grid{};
-
-    SLAE slae{};
-    functionsBC func{};
-    std::vector<double> u{};
-
-    read_area("in/area.txt", area);
-    read_params("in/params.txt", params);
-    read_boundary_conds("in/boundary_conds.txt", boundary_conds);
-    read_grid("in/grid.txt", area, grid);
-
-    createPortrait(slae, grid.x.size(), grid.y.size());
-    calcGlobalMatrixAndVector(slae, grid, area, params);
-    calcBoundaryConditions(area, grid, slae, params, boundary_conds, func);
-    clearFictiousNodes(slae, area, grid.x.size(), grid.y.size());
-    methodOfIterations(slae, u, u, eps, maxIter, w);
-    output(area, u, grid);
-
-    return 0;
-}
->>>>>>> b97ec5b48ccfa00ea45586e940b62ae8c441483a
